@@ -1,0 +1,19 @@
+.testimonial-swiper .testimonial-slide {
+  width: 80%;
+  max-width: 600px;
+  transition: transform 0.3s ease, opacity 0.3s ease;
+  opacity: 0.4;
+  transform: scale(0.95);
+}
+
+.testimonial-swiper .swiper-slide-prev,
+.testimonial-swiper .swiper-slide-next {
+  opacity: 0.5;
+  transform: scale(0.95);
+}
+
+.testimonial-swiper .swiper-slide-active {
+  opacity: 1;
+  transform: scale(1.2);
+  z-index: 10;
+}

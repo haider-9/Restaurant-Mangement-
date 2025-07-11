@@ -1,62 +1,36 @@
-import { Routes, Route, Link } from "react-router";
-import ChatPage from "@/pages/chat";
-import Guestbook from "./pages/guestbook";
-import {
-  Book,
-  LayoutDashboard,
-  MessageCircleDashed,
-} from "lucide-react";
-import FloorManagement from "./pages/floor-management";
-import Sidebar from "./components/WebSidebar";
-import Dashboard from "./pages/dashboard";
+import { useEffect } from 'react'
+import { Outlet } from 'react-router-dom'
+import './App.css'
+import { useDispatch, useSelector } from "react-redux";
+import { getPlans } from './store/slices/plan/planSlice';
+import { ToastContainer } from 'react-toastify';
 
-const App = () => {
+
+function App() {
+  const dispatch = useDispatch()
+  const plans = useSelector(state => state.plan.plans)
+
+  // console.log('plans', plans)
+  useEffect(() => {
+  }, [dispatch]);
+  useEffect(() => {
+    const response = dispatch(getPlans());
+
+    if (getPlans.fulfilled.match(response)) {
+      console.log('response', response.payload.plans)
+    }
+  }, []);
+
   return (
-    <div className="flex">
-      <Sidebar />
-      <div className="grow">
-        <Routes>
-          <Route
-            path="/"
-            element={
-              <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100 p-6">
-                <h1 className="font-bold text-2xl text-violet">
-                  Deniiz Management System
-                </h1>
-                <p>Select a page from the navigation menu.</p>
-                <nav className="grid gap-3 mt-4">
-                  <Link
-                    to="/chat"
-                    className="hover:underline inline-flex items-center gap-2"
-                  >
-                    <MessageCircleDashed /> Chat Page
-                  </Link>
-                  <Link
-                    to="/guestbook"
-                    className="hover:underline inline-flex items-center gap-2"
-                  >
-                    <Book />
-                    Guestbook
-                  </Link>
-                  <Link
-                    to="/floor-management"
-                    className="hover:underline inline-flex items-center gap-2"
-                  >
-                    <LayoutDashboard />
-                    Floor Management
-                  </Link>
-                </nav>
-              </div>
-            }
-          />
-          <Route path="/chat" element={<ChatPage />} />
-          <Route path="/guestbook" element={<Guestbook />} />
-          <Route path="/floor-management" element={<FloorManagement />} />
-          <Route path="/dashboard" element={ <Dashboard />} />
-        </Routes>
+    <div className='min-h-screen  flex flex-wrap content-between main'>
+      <div className='w-full block'>
+        <main >
+          <Outlet />
+        </main>
       </div>
-    </div>
-  );
-};
 
-export default App;
+    </div>
+  )
+}
+
+export default App
