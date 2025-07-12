@@ -1,22 +1,45 @@
-import { useState } from 'react';
+import { useState, useEffect } from "react";
 
-import { CustomerTable } from '@/components/location/guestbook/CustomerTable';
-import { CustomerDetailsDialog } from '@/components/location/guestbook/CutomerDetailsDialog';
-import { SearchAndFilters } from '@/components/location/guestbook/SearchAndFilter';
-import { generateDummyCustomers } from '@/constants/dummyGuestbookData';
+import { useSelector } from "react-redux";
+import Api from "@/config/api";
+import Layout from "@/components/common/Layout";
+import { SearchAndFilters } from "@/components/location/guestbook/SearchAndFilter";
+import { CustomerTable } from "@/components/location/guestbook/CustomerTable";
+import { CustomerDetailsDialog } from "@/components/location/guestbook/CutomerDetailsDialog";
 
 function GuestBook() {
-  const [customers] = useState(generateDummyCustomers(256));
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [clientTypeFilter, setClientTypeFilter] = useState("all");
   const [lastVisitFilter, setLastVisitFilter] = useState("all");
+  const [customers, setCustomers] = useState([]);
+  
+  const {
+    userData: { locationId },
+  } = useSelector((state) => state.auth);
+  
+  const customersApi = new Api(`/api/locations/${locationId}`);
+  useEffect(() => {
+    async function fetchCustomers() {
+      try {
+        const response = await customersApi.get(`/customers`);
+        const data = response?.data || response;
+        setCustomers(data.customers || []);
+      } catch (error) {
+        console.error(error);
+        setCustomers([]);
+      }
+    }
+    fetchCustomers();
+  }, []);
 
   const filteredCustomers = customers.filter((customer) => {
     const matchesSearch =
-      customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      customer.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      customer.phone.includes(searchTerm);
+      customer.customerName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      customer.customerEmail
+        ?.toLowerCase()
+        .includes(searchTerm.toLowerCase()) ||
+      customer.customerPhone?.includes(searchTerm);
 
     const matchesClientType =
       clientTypeFilter === "all" || customer.customerType === clientTypeFilter;
@@ -34,43 +57,39 @@ function GuestBook() {
   });
 
   return (
-    <div className="p-6">
-      <div className="mb-6">
-        <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-bold text-center grow">Guest Book</h1>
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-500">Admin</span>
-            <div className="w-8 h-8 bg-accent rounded-full flex items-center justify-center">
-              <span className="text-sm">👤</span>
-            </div>
-          </div>
-        </div>
+    <Layout title="Guestbook">
+      <div className="p-3 bg-background rounded-3xl border-4 ">
+        <SearchAndFilters
+          searchTerm={searchTerm}
+          onSearchChange={setSearchTerm}
+          clientTypeFilter={clientTypeFilter}
+          onClientTypeChange={setClientTypeFilter}
+          lastVisitFilter={lastVisitFilter}
+          onLastVisitChange={setLastVisitFilter}
+        />
 
-        <div className="p-3 bg-background rounded-lg">
-          <SearchAndFilters
-            searchTerm={searchTerm}
-            onSearchChange={setSearchTerm}
-            clientTypeFilter={clientTypeFilter}
-            onClientTypeChange={setClientTypeFilter}
-            lastVisitFilter={lastVisitFilter}
-            onLastVisitChange={setLastVisitFilter}
-          />
+        <CustomerTable
+          customers={filteredCustomers}
+          onCustomerSelect={setSelectedCustomer}
+          restartPagination={
+            !!(
+              searchTerm ||
+              clientTypeFilter !== "all" ||
+              lastVisitFilter !== "all"
+            )
+          }
+        />
 
-          <CustomerTable
-            customers={filteredCustomers}
-            onCustomerSelect={setSelectedCustomer}
-            restartPagination={!!(searchTerm || clientTypeFilter !== "all" || lastVisitFilter !== "all")}
-          />
-
+        {!!selectedCustomer && (
           <CustomerDetailsDialog
             customer={selectedCustomer}
             open={!!selectedCustomer}
             onOpenChange={(open) => !open && setSelectedCustomer(null)}
           />
-        </div>
+        )}
       </div>
-    </div>
+    </Layout>
   );
 }
 
-export default GuestBook
+export default GuestBook;

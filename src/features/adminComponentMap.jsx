@@ -115,7 +115,6 @@ export const adminComponentMap = {
       super: lazy(() => import('../pages/admin/super/Setting')),
       tenant: lazy(() => import('../pages/admin/tenant/Setting')),
       location: lazy(() => import("../pages/admin/location/Settings")),
-      staff: lazy(() => import("../pages/admin/staff/Settings"))
     },
   },
   logout: {

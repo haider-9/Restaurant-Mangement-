@@ -14,14 +14,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart";
 import locationApi from "@/config/locationApi";
 import { useSelector } from "react-redux";
+import { registerSocketEventCallback } from "@/context/SocketEventRegistry";
+import useSocketEvent from "@/hooks/use-socket-event";
 
 const chartConfig = {
   reservations: {
     label: "Reservations",
-    color: "hsl(262, 100%, 61%)", // similar to #6640FF
+    color: "hsl(262, 100%, 61%)",
   },
 };
 
@@ -31,7 +37,6 @@ const DAY_OPTIONS = [
   { label: "Last 30 days", value: 30 },
 ];
 
-// Helper to format "2025-07-09" or "july-9-2025" to "Jul 9"
 function formatDisplayDate(dateStr) {
   if (!dateStr) return "";
   if (dateStr.includes("-")) {
@@ -58,39 +63,45 @@ const DemandTrendChart = () => {
   const [days, setDays] = useState(7);
   const [chartData, setChartData] = useState([]);
   const [loading, setLoading] = useState(false);
-  const { userData: { locationId } } = useSelector(state => state.auth);
+  const {
+    userData: { locationId },
+  } = useSelector((state) => state.auth);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        const res = await locationApi.get(
-          `/${locationId}/reservationPerDays?days=${days}`
-        );
-        if (!res.success && !res.reservationsPerDates) { setChartData([]); return; }
-        const obj = res.reservationsPerDates;
-        const arr = Object.entries(obj)
-          .map(([date, reservations]) => ({
-            displayDate: formatDisplayDate(date),
-            reservations,
-          }));
-
-        arr.sort((a, b) => {
-          const parseDate = (d) => {
-            const [mon, day] = d.displayDate.split(" ");
-            return new Date(`${mon} ${day}, 2025`);
-          };
-          return parseDate(a) - parseDate(b);
-        });
-        setChartData(arr);
-      } catch (err) {
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const res = await locationApi.get(
+        `/${locationId}/reservationPerDays?days=${days}`
+      );
+      if (!res.success && !res.reservationsPerDates) {
         setChartData([]);
+        return;
       }
-      setLoading(false);
-    };
+      const obj = res.reservationsPerDates;
+      const arr = Object.entries(obj).map(([date, reservations]) => ({
+        displayDate: formatDisplayDate(date),
+        reservations,
+      }));
 
+      arr.sort((a, b) => {
+        const parseDate = (d) => {
+          const [mon, day] = d.displayDate.split(" ");
+          return new Date(`${mon} ${day}, 2025`);
+        };
+        return parseDate(a) - parseDate(b);
+      });
+      setChartData(arr);
+    } catch (err) {
+      setChartData([]);
+    }
+    setLoading(false);
+  };
+  useEffect(() => {
     fetchData();
-  }, [days, locationId]);
+  }, []);
+
+  useSocketEvent("new-booking", fetchData);
+
 
   return (
     <div className="w-full mx-auto p-4">
@@ -100,12 +111,12 @@ const DemandTrendChart = () => {
             Demand Trend
           </h2>
         </div>
-        <Select value={String(days)} onValueChange={v => setDays(Number(v))}>
+        <Select value={String(days)} onValueChange={(v) => setDays(Number(v))}>
           <SelectTrigger className="w-36">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {DAY_OPTIONS.map(opt => (
+            {DAY_OPTIONS.map((opt) => (
               <SelectItem key={opt.value} value={String(opt.value)}>
                 {opt.label}
               </SelectItem>
@@ -133,7 +144,11 @@ const DemandTrendChart = () => {
               </linearGradient>
             </defs>
 
-            <CartesianGrid strokeDasharray="5 5" vertical={false} stroke="#f0f0f0" />
+            <CartesianGrid
+              strokeDasharray="5 5"
+              vertical={false}
+              stroke="#f0f0f0"
+            />
 
             <XAxis
               dataKey="displayDate"

@@ -1,18 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Edit, Trash2 } from "lucide-react";
+import { Edit, Trash2, Plus } from "lucide-react";
 import moment from "moment-timezone";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -32,8 +21,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "react-toastify";
 import { useSelector } from "react-redux";
 import Api from "@/config/api";
+import LocationForm from "@/components/tenant/setting/LocationForm";
+import DeleteLocationDialog from "@/components/tenant/setting/DeleteLocationDialog";
 
-const LocationList = () => {
+const Location = () => {
   const [locations, setLocations] = useState([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -41,6 +32,10 @@ const LocationList = () => {
   const [editingLocation, setEditingLocation] = useState(null);
   const [timezones, setTimezones] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [timeFormat, setTimeFormat] = useState("24h"); // '12h' or '24h'
+
+  // Ref for SMS template textarea to handle cursor position
+  const smsTemplateRef = useRef(null);
 
   const {
     userData: { tenantId },
@@ -49,6 +44,7 @@ const LocationList = () => {
   // Initialize API instance
   const locationApi = new Api(`/api/locations/all/tenants/${tenantId}`);
   const userApi = new Api("/api/users");
+  const addLocationApi = new Api(`/api/tenants/${tenantId}/locations`);
 
   const [formData, setFormData] = useState({
     locationName: "",
@@ -60,12 +56,71 @@ const LocationList = () => {
     adminEmail: "",
     twilioNumber: "",
     smsTemplate: "",
+    mealTimings: {
+      breakfast: { start: "", end: "" },
+      lunch: { start: "", end: "" },
+      dinner: { start: "", end: "" },
+    },
   });
 
   // For adminEmail validation
   const [adminEmailError, setAdminEmailError] = useState("");
   const [isCheckingEmail, setIsCheckingEmail] = useState(false);
   const debounceTimeout = useRef(null);
+
+  //  For meal timing validation
+  const [mealTimingErrors, setMealTimingErrors] = useState({});
+
+  // SMS Template variables
+  const smsVariables = [
+    { label: "Customer Name", value: "{{customer_name}}" },
+    { label: "Reservation Date", value: "{{reservation_date}}" },
+    { label: "Reservation Time", value: "{{reservation_time}}" },
+    { label: "Party Size", value: "{{party_size}}" },
+    { label: "Location Name", value: "{{location_name}}" },
+    { label: "Location Address", value: "{{location_address}}" },
+  ];
+
+  // Helper function to convert time to 24h format for comparison
+  const convertTo24Hour = (timeStr) => {
+    if (!timeStr) return "";
+
+    // If already in 24h format (HH:mm), return as is
+    if (/^\d{2}:\d{2}$/.test(timeStr)) {
+      return timeStr;
+    }
+
+    // If in 12h format, convert to 24h
+    const time = moment(timeStr, ["h:mm A", "hh:mm A"]);
+    return time.isValid() ? time.format("HH:mm") : timeStr;
+  };
+
+  // Function to insert variable into SMS template at cursor position
+  const insertSmsVariable = (variable) => {
+    const textarea = smsTemplateRef.current;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const currentValue = formData.smsTemplate;
+
+    const newValue =
+      currentValue.substring(0, start) + variable + currentValue.substring(end);
+
+    setFormData((prev) => ({
+      ...prev,
+      smsTemplate: newValue,
+    }));
+
+    // Set cursor position after the inserted variable
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(
+        start + variable.length,
+        start + variable.length
+      );
+    }, 0);
+  };
 
   // Fetch locations from API
   useEffect(() => {
@@ -75,6 +130,7 @@ const LocationList = () => {
         const response = await locationApi.get("");
         console.log(response);
         if (response && response.locations) {
+          console.log(response.locations);
           setLocations(response.locations);
         } else {
           setLocations([]);
@@ -155,6 +211,104 @@ const LocationList = () => {
     };
   }, [formData.adminEmail, isDialogOpen]);
 
+  // Validate meal timings for overlaps
+  const validateMealTimings = () => {
+    const errors = {};
+    const timings = [];
+
+    // Helper to compare time strings and convert to 24h format
+    const isBefore = (a, b) => convertTo24Hour(a) < convertTo24Hour(b);
+    const to24h = (time) => convertTo24Hour(time);
+
+    // Define meal periods
+    const mealPeriods = [
+      {
+        name: "Breakfast",
+        from: formData.breakfastFrom,
+        to: formData.breakfastTo,
+      },
+      { name: "Lunch", from: formData.lunchFrom, to: formData.lunchTo },
+      { name: "Dinner", from: formData.dinnerFrom, to: formData.dinnerTo },
+    ];
+
+    // Collect valid meal timings
+    mealPeriods.forEach((meal) => {
+      if (meal.from && meal.to) {
+        timings.push({
+          name: meal.name,
+          from: to24h(meal.from),
+          to: to24h(meal.to),
+        });
+
+        // Check if from time is before to time
+        if (!isBefore(meal.from, meal.to)) {
+          errors[
+            meal.name.toLowerCase()
+          ] = `${meal.name} start time must be before end time`;
+        }
+      }
+    });
+
+    // Check for overlaps between meals
+    timings.forEach((meal1, i) => {
+      timings.slice(i + 1).forEach((meal2) => {
+        if (
+          (meal1.from < meal2.to && meal1.to > meal2.from) ||
+          (meal2.from < meal1.to && meal2.to > meal1.from)
+        ) {
+          const errorMsg = `${meal1.name} and ${meal2.name} timings overlap`;
+          errors[meal1.name.toLowerCase()] = errorMsg;
+          errors[meal2.name.toLowerCase()] = errorMsg;
+        }
+      });
+    });
+
+    // Check if meal times are within opening/closing times
+    const opening = to24h(formData.openingTime);
+    const closing = to24h(formData.closingTime);
+
+    if (opening && closing) {
+      mealPeriods.forEach((meal) => {
+        if (meal.from) {
+          const mealFromTime = to24h(meal.from);
+          if (mealFromTime < opening || mealFromTime > closing) {
+            errors[
+              meal.name.toLowerCase()
+            ] = `${meal.name} start time must be within opening and closing hours`;
+          }
+        }
+        if (meal.to) {
+          const mealToTime = to24h(meal.to);
+          if (mealToTime < opening || mealToTime > closing) {
+            errors[
+              meal.name.toLowerCase()
+            ] = `${meal.name} end time must be within opening and closing hours`;
+          }
+        }
+      });
+    }
+
+    setMealTimingErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  // Validate meal timings whenever relevant form data changes
+  useEffect(() => {
+    if (isDialogOpen) {
+      validateMealTimings();
+    }
+  }, [
+    formData.breakfastFrom,
+    formData.breakfastTo,
+    formData.lunchFrom,
+    formData.lunchTo,
+    formData.dinnerFrom,
+    formData.dinnerTo,
+    formData.openingTime,
+    formData.closingTime,
+    isDialogOpen,
+  ]);
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
@@ -173,6 +327,15 @@ const LocationList = () => {
     }));
   };
 
+  const handleTimeChange = (name, value) => {
+    // Convert time to 24h format for storage
+    const time24h = value ? convertTo24Hour(value) : "";
+    setFormData((prev) => ({
+      ...prev,
+      [name]: time24h,
+    }));
+  };
+
   const handleAddLocation = () => {
     setEditingLocation(null);
     setFormData({
@@ -184,8 +347,16 @@ const LocationList = () => {
       turnOverTime: 30,
       adminEmail: "",
       smsTemplate: "",
+      breakfastFrom: "",
+      breakfastTo: "",
+      lunchFrom: "",
+      lunchTo: "",
+      dinnerFrom: "",
+      dinnerTo: "",
     });
     setAdminEmailError("");
+    setMealTimingErrors({});
+    setTimeFormat("24h"); // Reset to default format
     setIsDialogOpen(true);
   };
 
@@ -194,15 +365,22 @@ const LocationList = () => {
     setFormData({
       locationName: location.locationName || "",
       address: location.address || "",
-      timeZone: location.timeZone || location.timezone || "",
+      timeZone: location.timeZone || "",
       openingTime: location.openingTime || "",
       closingTime: location.closingTime || "",
       turnOverTime: location.turnOverTime || 30,
       adminEmail: location.adminEmail || "",
-
       smsTemplate: location.smsTemplate || "",
+      breakfastFrom: location.breakfastFrom || "",
+      breakfastTo: location.breakfastTo || "",
+      lunchFrom: location.lunchFrom || "",
+      lunchTo: location.lunchTo || "",
+      dinnerFrom: location.dinnerFrom || "",
+      dinnerTo: location.dinnerTo || "",
     });
     setAdminEmailError("");
+    setMealTimingErrors({});
+    setTimeFormat("24h"); // Reset to default format
     setIsDialogOpen(true);
   };
 
@@ -253,15 +431,42 @@ const LocationList = () => {
       }
     }
 
+    // Validate meal timings
+    if (!validateMealTimings()) {
+      toast.error("Please fix meal timing errors before submitting.");
+      return;
+    }
+
+    // Build mealTimings object
+    const mealTimings = {
+      breakfast: {
+        start: convertTo24Hour(formData.breakfastFrom) || "07:00",
+        end: convertTo24Hour(formData.breakfastTo) || "10:00",
+      },
+      lunch: {
+        start: convertTo24Hour(formData.lunchFrom) || "12:00",
+        end: convertTo24Hour(formData.lunchTo) || "15:00",
+      },
+      dinner: {
+        start: convertTo24Hour(formData.dinnerFrom) || "18:00",
+        end: convertTo24Hour(formData.dinnerTo) || "22:00",
+      },
+    };
+
+    // Build payload according to backend schema
     const payload = {
       locationName: formData.locationName,
       address: formData.address,
-      openingTime: formData.openingTime,
-      closingTime: formData.closingTime,
-      timeZone: formData.timeZone,
+      openingTime: convertTo24Hour(formData.openingTime),
+      closingTime: convertTo24Hour(formData.closingTime),
+      timeZone: formData.timeZone || "France/Paris",
       turnOverTime: Number(formData.turnOverTime),
+      smsTemplate: formData.smsTemplate || "New location has been created!",
+      status: "active",
+      tenantId,
+      timeFormatPreference: timeFormat === "12h" ? "12-hour" : "24-hour",
+      mealTimings,
       adminEmail: formData.adminEmail,
-      smsTemplate: formData.smsTemplate,
     };
 
     try {
@@ -269,48 +474,41 @@ const LocationList = () => {
 
       if (editingLocation) {
         const updateApi = new Api(`/api/locations/`);
-
         await updateApi.put(`${editingLocation._id}`, "", payload);
         setLocations((prev) =>
           prev.map((location) =>
             location._id === editingLocation._id
               ? {
-                ...location,
-                ...formData,
-                turnOverTime: Number(formData.turnOverTime),
-                smsTemplate: formData.smsTemplate,
-              }
+                  ...location,
+                  ...payload,
+                  updatedAt: new Date().toISOString(),
+                }
               : location
           )
         );
         toast.success("Location updated successfully.");
       } else {
         // Create new location
-        const response = await locationApi.post("", payload);
+        const response = await addLocationApi.post("", payload);
         console.log(response);
         const newLocation = response?.location || {
           ...payload,
-          tenantId,
         };
-
         setLocations((prev) => [...prev, newLocation]);
         toast.success("Location added successfully.");
       }
     } catch (err) {
       console.error("Submit error:", err);
-
       if (editingLocation) {
         // Still update UI for edit
         setLocations((prev) =>
           prev.map((location) =>
             location._id === editingLocation._id
               ? {
-                ...location,
-                ...formData,
-                turnOverTime: Number(formData.turnOverTime),
-                smsTemplate: formData.smsTemplate,
-                updatedAt: new Date().toISOString(),
-              }
+                  ...location,
+                  ...payload,
+                  updatedAt: new Date().toISOString(),
+                }
               : location
           )
         );
@@ -329,6 +527,8 @@ const LocationList = () => {
     setIsDialogOpen(false);
     setEditingLocation(null);
     setAdminEmailError("");
+    setMealTimingErrors({});
+    setTimeFormat("24h"); // Reset format on close
   };
 
   // Helper function to format timezone display
@@ -354,6 +554,7 @@ const LocationList = () => {
                   className="flex items-center gap-2 cursor-pointer"
                   disabled={isLoading}
                 >
+                  <Plus size={18} className="mr-1" />
                   Add New Location
                 </Button>
               </DialogTrigger>
@@ -364,201 +565,26 @@ const LocationList = () => {
                     {editingLocation ? "Edit Location" : "Add Location"}
                   </DialogTitle>
                 </DialogHeader>
-
-                <form onSubmit={handleSubmit} className="space-y-6">
-                  {/* Location Name */}
-                  <div className="space-y-2">
-                    <Label htmlFor="locationName">Name</Label>
-                    <Input
-                      id="locationName"
-                      name="locationName"
-                      value={formData.locationName}
-                      onChange={handleInputChange}
-                      placeholder="Enter location name"
-                      required
-                      disabled={isLoading}
-                    />
-                  </div>
-
-                  {/* Address */}
-                  <div className="space-y-2">
-                    <Label htmlFor="address">Address</Label>
-                    <Input
-                      id="address"
-                      name="address"
-                      value={formData.address}
-                      onChange={handleInputChange}
-                      placeholder="Enter full address"
-                      required
-                      disabled={isLoading}
-                    />
-                  </div>
-
-                  {/* Admin Email */}
-                  {!editingLocation && (
-                    <div className="space-y-2">
-                      <Label htmlFor="adminEmail">Admin Email</Label>
-                      <Input
-                        id="adminEmail"
-                        name="adminEmail"
-                        type="email"
-                        value={formData.adminEmail}
-                        onChange={handleInputChange}
-                        placeholder="Enter admin email"
-                        required
-                        autoComplete="off"
-                        disabled={isLoading}
-                      />
-                      {isCheckingEmail && (
-                        <div className="text-xs text-muted-foreground">
-                          Checking email...
-                        </div>
-                      )}
-                      {adminEmailError && (
-                        <div
-                          className={`text-xs ${adminEmailError === "Email Found"
-                            ? "text-green-500"
-                            : "text-red-500"
-                            }`}
-                        >
-                          {adminEmailError}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* SMS Template */}
-                  <div className="space-y-2">
-                    <Label htmlFor="smsTemplate">SMS Template</Label>
-                    <Textarea
-                      id="smsTemplate"
-                      name="smsTemplate"
-                      value={formData.smsTemplate}
-                      onChange={handleInputChange}
-                      placeholder="Enter SMS template for this location"
-                      rows={3}
-                      required
-                      disabled={isLoading}
-                    />
-                  </div>
-
-                  {/* Time Zone */}
-                  <div className="space-y-2">
-                    <Label htmlFor="timeZone">Time Zone</Label>
-                    <Select
-                      value={formData.timeZone}
-                      onValueChange={(value) =>
-                        handleSelectChange("timeZone", value)
-                      }
-                      disabled={isLoading}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select Time Zone" />
-                      </SelectTrigger>
-                      <SelectContent className="max-h-60">
-                        {timezones.map((tz) => (
-                          <SelectItem key={tz.value} value={tz.value}>
-                            {tz.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Opening and Closing Hours */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="openingTime">Opening Hours</Label>
-                      <Input
-                        type="time"
-                        id="openingTime"
-                        name="openingTime"
-                        value={formData.openingTime}
-                        onChange={handleInputChange}
-                        required
-                        disabled={isLoading}
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="closingTime">Closing Hours</Label>
-                      <Input
-                        type="time"
-                        id="closingTime"
-                        name="closingTime"
-                        value={formData.closingTime}
-                        onChange={handleInputChange}
-                        required
-                        disabled={isLoading}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Turn Over */}
-                  <div className="space-y-3">
-                    <Label>Turn Over</Label>
-                    <RadioGroup
-                      value={String(formData.turnOverTime)}
-                      onValueChange={(value) =>
-                        handleSelectChange("turnOverTime", value)
-                      }
-                      className="flex flex-wrap gap-6"
-                      disabled={isLoading}
-                    >
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem
-                          value="30"
-                          id="30"
-                          disabled={isLoading}
-                        />
-                        <Label htmlFor="30">30 minutes</Label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem
-                          value="60"
-                          id="60"
-                          disabled={isLoading}
-                        />
-                        <Label htmlFor="60">60 minutes</Label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem
-                          value="90"
-                          id="90"
-                          disabled={isLoading}
-                        />
-                        <Label htmlFor="90">90 minutes</Label>
-                      </div>
-                    </RadioGroup>
-                  </div>
-
-                  {/* Dialog Actions */}
-                  <div className="flex justify-end gap-3 pt-4">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={handleCloseDialog}
-                      disabled={isLoading}
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      type="submit"
-                      disabled={
-                        isLoading ||
-                        (adminEmailError &&
-                          adminEmailError !== "Email Found") ||
-                        isCheckingEmail
-                      }
-                    >
-                      {isLoading
-                        ? "Processing..."
-                        : editingLocation
-                          ? "Update Location"
-                          : "Add Location"}
-                    </Button>
-                  </div>
-                </form>
+                <LocationForm
+                  formData={formData}
+                  setFormData={setFormData}
+                  timezones={timezones}
+                  timeFormat={timeFormat}
+                  setTimeFormat={setTimeFormat}
+                  isLoading={isLoading}
+                  editingLocation={editingLocation}
+                  adminEmailError={adminEmailError}
+                  isCheckingEmail={isCheckingEmail}
+                  mealTimingErrors={mealTimingErrors}
+                  handleInputChange={handleInputChange}
+                  handleSelectChange={handleSelectChange}
+                  handleTimeChange={handleTimeChange}
+                  handleCloseDialog={handleCloseDialog}
+                  handleSubmit={handleSubmit}
+                  smsVariables={smsVariables}
+                  insertSmsVariable={insertSmsVariable}
+                  smsTemplateRef={smsTemplateRef}
+                />
               </DialogContent>
             </Dialog>
           </div>
@@ -623,7 +649,7 @@ const LocationList = () => {
                 {locations.length === 0 && !isLoading ? (
                   <TableRow>
                     <TableCell
-                      colSpan={6}
+                      colSpan={7}
                       className="text-center py-8 text-muted-foreground"
                     >
                       No locations found. Add your first location to get
@@ -639,14 +665,29 @@ const LocationList = () => {
                       <TableCell className="font-medium">
                         {location.locationName}
                       </TableCell>
-                      <TableCell>{location.address}</TableCell>
+                      <TableCell className="max-w-[200px] truncate">
+                        {location.address}
+                      </TableCell>
                       <TableCell>
                         {formatTimezoneDisplay(
                           location.timeZone || location.timezone
                         )}
                       </TableCell>
-                      <TableCell>{location.openingTime}</TableCell>
-                      <TableCell>{location.closingTime}</TableCell>
+                      <TableCell>
+                        {location.openingTime
+                          ? moment(location.openingTime, "HH:mm").format(
+                              "h:mm A"
+                            )
+                          : location.openingTime}
+                      </TableCell>
+                      <TableCell>
+                        {location.closingTime
+                          ? moment(location.closingTime, "HH:mm").format(
+                              "h:mm A"
+                            )
+                          : location.closingTime}
+                      </TableCell>
+
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <Button
@@ -677,44 +718,17 @@ const LocationList = () => {
           </div>
 
           {/* Delete Confirmation Dialog */}
-          <Dialog
+          <DeleteLocationDialog
             open={isDeleteDialogOpen}
             onOpenChange={setIsDeleteDialogOpen}
-          >
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Delete Location</DialogTitle>
-              </DialogHeader>
-              <div className="py-4">
-                <p>
-                  Are you sure you want to delete this location? This action
-                  cannot be undone.
-                </p>
-              </div>
-              <div className="flex justify-end gap-3">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setIsDeleteDialogOpen(false)}
-                  disabled={isLoading}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="button"
-                  variant="destructive"
-                  onClick={confirmDelete}
-                  disabled={isLoading}
-                >
-                  {isLoading ? "Deleting..." : "Delete"}
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
+            isLoading={isLoading}
+            onCancel={() => setIsDeleteDialogOpen(false)}
+            onConfirm={confirmDelete}
+          />
         </CardContent>
       </Card>
     </div>
   );
 };
 
-export default LocationList;
+export default Location;

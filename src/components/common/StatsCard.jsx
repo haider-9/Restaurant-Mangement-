@@ -11,7 +11,7 @@ const StatsCard = ({ heading, stat, percentage, isIncrease = true, className }) 
         <CardTitle className="">{heading}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        <div className="text-3xl sm:text-4xl font-bold">{stat}</div>
+        <div className={cn("text-3xl sm:text-4xl font-bold truncate", stat?.length > 8 && "text-sm")}>{stat}</div>
         {percentage && <div
           className={cn(
             "w-full inline-flex items-center justify-end gap-2 text-sm font-semibold",

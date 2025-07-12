@@ -1,25 +1,45 @@
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useNotifications } from "@/hooks/use-notifications";
 import { UserCircle2 } from "lucide-react";
 
-const Updates = ({ updates = [] }) => {
+const formatter = Intl.DateTimeFormat("en", {
+  dateStyle: "medium",
+  timeStyle: "short",
+});
+
+const Updates = () => {
+  const { notifications } = useNotifications({
+    role: "tenant"
+  });
+
   return (
-    <div className="px-2 py-4 h-full rounded-xl border bg-white shadow-2xs">
+    <div className="px-2 py-4 h-full">
       <h2 className="pb-2 text-black/70 font-semibold text-center">
         Recent Updates
       </h2>
-      <ScrollArea className="h-74 md:h-full">
-        <div className="grid">
-          {updates.map((update) => (
-            <div
-              key={update.id}
-              className="py-2 px-1 flex items-center gap-2 hover:bg-muted cursor-pointer rounded-md "
-            >
-              <UserCircle2 className="size-6" />
-              <p className="line-clamp-1 text-sm">{update.updateMessage}</p>
-            </div>
-          ))}
-        </div>
-      </ScrollArea>
+      {notifications.length === 0 && <div className="h-full flex items-center justify-center text-lg text-muted-foreground">No Recent Notifications</div>}
+      {notifications.length > 0 && (
+        <ScrollArea className="h-74 md:h-full">
+          <div className="grid gap-0.5">
+            {notifications.map((notification) => (
+              <div
+                key={notification._id}
+                className="py-2 px-1 hover:bg-primary/10 border border-transparent hover:border-primary/30 cursor-pointer rounded-md mr-3 flex items-center gap-2 relative"
+              >
+                <UserCircle2 className="size-6" />
+                <div className="grow space-y-1.5">
+                  <p className="line-clamp-2 text-sm text-left">
+                    {notification?.message}
+                  </p>
+                  <p className="text-muted-foreground text-right text-xs">
+                    {formatter.format(Date.parse(notification?.createdAt))}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </ScrollArea>
+      )}
     </div>
   );
 };

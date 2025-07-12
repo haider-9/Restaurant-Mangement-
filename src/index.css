@@ -11,7 +11,7 @@
 @theme {
 
   --animate-float: float 3s ease-in-out infinite;
-  
+
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -47,9 +47,9 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
-  
+
   --color-primary-100: #5570F1;
-  
+
   --color-secondary-100: #FEF5EA;
   --color-secondary-200: #FFCC91;
   --color-secondary-300: #FFB366;
@@ -59,7 +59,7 @@
   --color-secondary-700: #CC6600;
   --color-secondary-800: #B35900;
   --color-secondary-900: #993D00;
-  
+
   --color-destructive-100: #FF4043;
   --color-violet: #6640FF;
   --color-success: #1EB564;
@@ -67,18 +67,18 @@
   --color-reservations: #80807D;
   --color-walkins: #52B552;
   --color-input-background: #F6F7FB;
-  
-  --font-inter: Inter, "sans-serif",
-  
+
+  --font-inter: Inter, "sans-serif";
+
   --font-poppins: "Poppins", "Inter";
   --font-inter: "Poppins", "Inter";
   --font-rubik: "Rubik", "Rubik";
-  
+
   --color-primary: #6640FF;
 
   --font-poppins: "Poppins", "Poppins";
   --font-inter: "Inter", "Inter";
-  --font-playfair: "Playfair Display", "Playfair Display",;
+  --font-playfair: "Playfair Display", "Playfair Display", ;
   --font-rubik: "Rubik", "Rubik";
 
   --color-primary: #0c9cdc;
@@ -88,7 +88,7 @@
   --color-textPrimary: #383838;
   --color-textSecondary: #656565;
   --color-widgetColor: #c30606;
-  
+
   --color-toast-background: 0 0% 100%;
   --color-toast-foreground: 222.2 84% 4.9%;
   --color-toast-card: 0 0% 100%;
@@ -106,15 +106,18 @@
   --color-toast-destructive: 0 84.2% 60.2%;
   --color-toast-destructive-foreground: 210 40% 98%;
   --color-toast-border: 214.3 31.8% 91.4%;
+
+  --color-status-active: #4ADE80;
+  --color-status-suspended: #F87171;
 }
 
 @keyframes float {
-  
+
   0%,
   100% {
     transform: rotate(1deg) translateY(0px);
   }
-  
+
   30% {
     transform: translateY(1px)
   }
@@ -128,7 +131,7 @@
   0% {
     transform: translateX(0);
   }
-  
+
   100% {
     transform: translateX(-50%);
   }
@@ -274,12 +277,16 @@
     @apply border-border outline-ring/50;
 
   }
+
   body {
     @apply bg-background text-foreground;
 
   }
-}
-h1, h2, h3, h4 {
-  font-family: "Playfair Display"
 
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: "Playfair Display";
+  }
 }

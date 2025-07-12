@@ -25,9 +25,9 @@ export function SearchAndFilters({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Filter by Client Type</SelectItem>
-            <SelectItem value="Returning">Returning</SelectItem>
-            <SelectItem value="New">New</SelectItem>
-            <SelectItem value="VIP">VIP</SelectItem>
+            <SelectItem value="returning">Returning</SelectItem>
+            <SelectItem value="new">New</SelectItem>
+            <SelectItem value="vip">VIP</SelectItem>
           </SelectContent>
         </Select>
 
@@ -43,7 +43,7 @@ export function SearchAndFilters({
         </Select>
       </div>
 
-      <div className="relative flex-1 max-w-2x">
+      <div className="relative flex-1 max-w-2xs">
         <Input
           placeholder="Search"
           value={searchTerm}

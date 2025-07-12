@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import StatsCard from "@/components/common/StatsCard";
 import { useSelector } from "react-redux";
 import locationApi from "@/config/locationApi";
+import useSocketEvent from "@/hooks/use-socket-event";
 
 const defaultMetrics = {
   bookings: {
@@ -42,24 +43,26 @@ const LocationAdminMetrics = () => {
 
   const locationId = useSelector(state => state.auth?.userData?.locationId);
 
-  useEffect(() => {
-    const fetchMetrics = async () => {
-      if (!locationId) return;
-      try {
-        const response = await locationApi.get(`/${locationId}/dailyMetrics`);
-        // The API returns { success, data, meta }
-        if (response && response.success && response.data) {
-          setMetricsData(response.data);
-        } else {
-          setMetricsData(defaultMetrics);
-        }
-      } catch (error) {
-        console.error("Error fetching location admin metrics:", error);
+  const fetchMetrics = async () => {
+    if (!locationId) return;
+    try {
+      const response = await locationApi.get(`/${locationId}/dailyMetrics`);
+      // The API returns { success, data, meta }
+      if (response && response.success && response.data) {
+        setMetricsData(response.data);
+      } else {
         setMetricsData(defaultMetrics);
       }
-    };
+    } catch (error) {
+      console.error("Error fetching location admin metrics:", error);
+      setMetricsData(defaultMetrics);
+    }
+  };
+  useEffect(() => {
     fetchMetrics();
-  }, [locationId]);
+  }, []);
+
+  useSocketEvent("new-booking", fetchMetrics);
 
   const stats = [
     {
@@ -94,7 +97,7 @@ const LocationAdminMetrics = () => {
           heading={stat.heading}
           isIncrease={stat.isIncrease}
           percentage={stat.percentage}
-          className="col-span-4 xl:col-span-3"
+          className="col-span-12 sm:col-span-4 xl:col-span-3"
         />
       ))}
     </>

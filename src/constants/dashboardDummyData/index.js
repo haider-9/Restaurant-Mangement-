@@ -39,63 +39,63 @@ export const dummyStats = [
   export const dummyUpdates = [
     {
       id: 1,
-      updateMessage: "New reservation made for Table 7",
-      imageSrc: "https://api.dicebear.com/7.x/avataaars/svg?seed=Felix",
-      fallbackName: "JD",
+      message: "New reservation made for Table 7",
+      date: "2024-01-15T09:30:00.000Z",
+      isRead: false
     },
     {
       id: 2,
-      updateMessage: "Cancelled reservation for Party of 4",
-      imageSrc: "https://api.dicebear.com/7.x/avataaars/svg?seed=Sarah",
-      fallbackName: "SA",
+      message: "Cancelled reservation for Party of 4",
+      date: "2024-01-15T09:25:00.000Z",
+      isRead: true
     },
     {
       id: 3,
-      updateMessage: "Modified booking time for Table 12",
-      imageSrc: "https://api.dicebear.com/7.x/avataaars/svg?seed=Mike",
-      fallbackName: "MK",
+      message: "Modified booking time for Table 12",
+      date: "2024-01-15T09:20:00.000Z",
+      isRead: true
     },
     {
       id: 4,
-      updateMessage: "Special request added to Reservation #45",
-      imageSrc: "https://api.dicebear.com/7.x/avataaars/svg?seed=Emma",
-      fallbackName: "EM",
+      message: "Special request added to Reservation #45",
+      date: "2024-01-15T09:15:00.000Z",
+      isRead: true
     },
     {
       id: 5,
-      updateMessage: "Table 3 marked as occupied",
-      imageSrc: "https://api.dicebear.com/7.x/avataaars/svg?seed=John",
-      fallbackName: "JH",
+      message: "Table 3 marked as occupied",
+      date: "2024-01-15T09:10:00.000Z",
+      isRead: true
     },
     {
       id: 6,
-      updateMessage: "Guest check-in for Table 9",
-      imageSrc: "https://api.dicebear.com/7.x/avataaars/svg?seed=Lisa",
-      fallbackName: "LS",
+      message: "Guest check-in for Table 9",
+      date: "2024-01-15T09:05:00.000Z",
+      isRead: true
     },
     {
       id: 7,
-      updateMessage: "Updated party size for Reservation #23",
-      imageSrc: "https://api.dicebear.com/7.x/avataaars/svg?seed=Tom",
-      fallbackName: "TM",
+      message: "Updated party size for Reservation #23",
+      date: "2024-01-15T09:00:00.000Z",
+      isRead: true
     },
     {
       id: 8,
-      updateMessage: "No-show recorded for Table 5",
-      imageSrc: "https://api.dicebear.com/7.x/avataaars/svg?seed=Anna",
-      fallbackName: "AN",
+      message: "No-show recorded for Table 5",
+      date: "2024-01-15T08:55:00.000Z",
+      isRead: true
     },
     {
       id: 9,
-      updateMessage: "Table 15 marked as available",
-      imageSrc: "https://api.dicebear.com/7.x/avataaars/svg?seed=David",
-      fallbackName: "DV",
+      message: "Table 15 marked as available",
+      date: "2024-01-15T08:50:00.000Z",
+      isRead: true
     },
     {
       id: 10,
-      updateMessage: "New group reservation for 8 people",
-      imageSrc: "https://api.dicebear.com/7.x/avataaars/svg?seed=Kate",
-      fallbackName: "KT",
+      message: "New group reservation for 8 people",
+      date: "2024-01-15T08:45:00.000Z",
+      isRead: true
     },
   ];
   

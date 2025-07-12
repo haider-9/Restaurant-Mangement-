@@ -1,113 +1,124 @@
-import React, { useState } from 'react'
-import Layout from '@/components/common/Layout'
-import Updates from '@/components/tenant/dashboard/Updates'
-import { dummyUpdates } from '@/constants/dashboardDummyData'
-import { Badge } from '@/components/ui/badge'
-import { useSelector } from 'react-redux'
-import GenericTable from '@/components/common/GenericTable'
-import { toast } from 'react-toastify'
+import Layout from "@/components/common/Layout";
+import { useState } from "react";
+import Api from "@/config/api";
+import { useSelector } from "react-redux";
+import { useEffect } from "react";
+import {
+  Table,
+  TableHeader,
+  TableRow,
+  TableHead,
+  TableBody,
+  TableCell,
+} from "@/components/ui/table";
+import PaginationControls from "@/components/common/PaginationControls";
+import { usePagination } from "@/hooks/use-pagination";
 
-// Dummy data for staff reservations (similar to Booking.jsx)
-const dummyStaffReservations = [
-  {
-    reservationId: "SRV1",
-    guestName: "John Doe",
-    guestType: "VIP",
-    partySize: 4,
-    date: "2024-06-10",
-    time: "18:00",
-    table: "2",
-    source: "Reserved",
-    status: "Confirmed",
-  },
-  {
-    reservationId: "SRV2",
-    guestName: "Jane Smith",
-    guestType: "Returning",
-    partySize: 2,
-    date: "2024-06-10",
-    time: "19:30",
-    table: "5",
-    source: "Walk-in",
-    status: "Seated",
-  },
-  {
-    reservationId: "SRV3",
-    guestName: "Alice Johnson",
-    guestType: "New",
-    partySize: 3,
-    date: "2024-06-10",
-    time: "20:00",
-    table: "1",
-    source: "Reserved",
-    status: "Completed",
-  },
-  {
-    reservationId: "SRV4",
-    guestName: "Bob Lee",
-    guestType: "VIP",
-    partySize: 5,
-    date: "2024-06-11",
-    time: "17:00",
-    table: "3",
-    source: "Walk-in",
-    status: "Confirmed",
-  },
-  {
-    reservationId: "SRV5",
-    guestName: "Charlie Kim",
-    guestType: "Returning",
-    partySize: 2,
-    date: "2024-06-11",
-    time: "21:00",
-    table: "4",
-    source: "Reserved",
-    status: "No Show",
-  },
-]
-
-// Define columns for GenericTable, including actions column
 const staffTableColumns = [
-  { key: "reservationId", label: "Reservation ID" },
-  { key: "guestName", label: "Guest" },
-  { key: "guestType", label: "Type" },
+  { key: "customer", label: "Customer" },
   { key: "partySize", label: "Party Size" },
   { key: "date", label: "Date" },
   { key: "time", label: "Time" },
-  {
-    key: "table",
-    label: "Table",
-    render: (row) => <Badge variant="outline">{`T${row.table}`}</Badge>,
-  },
-  { key: "source", label: "Source" },
+  { key: "tableId", label: "Table(s)" },
   { key: "status", label: "Status" },
-  {
-    key: "actions",
-    label: "Actions",
-    type: "action",
-    actions: ["edit", "delete"],
-  },
-]
+  { key: "specialRequests", label: "Special Requests" },
+  { key: "allergies", label: "Allergies" },
+];
 
 function Dashboard() {
+  const [data, setData] = useState([]);
+  const { userData } = useSelector((state) => state.auth);
+  const getStaffApi = new Api(`/api/locations/${userData.locationId}/staff`);
 
+  const {
+    paginatedData,
+    currentPage,
+    totalPages,
+    totalCount,
+    startEntry,
+    endEntry,
+    pageNumbers,
+    goToPage,
+    goToNextPage,
+    goToPreviousPage,
+  } = usePagination(data, 10);
+
+  useEffect(() => {
+    async function fetchReservations() {
+      const response = await getStaffApi.get(
+        `/${userData._id}/tableReservations`
+      );
+      console.log(response);
+      if (response.reservations) {
+        setData(response.reservations);
+      }
+    }
+    fetchReservations();
+  }, [userData]);
 
   return (
-    <Layout title="Dashboard">
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mt-14 *:rounded-3xl w-full">
+    // <Layout title="Dashboard">
+      <div className="w-full gap-4 mt-14 *:rounded-3xl">
         <div className="md:col-span-3 min-h-32 p-6 bg-white border">
-          <h3 className="text-lg font-semibold mb-2 text-left">Assigned Reservations & Tables</h3>
-          <GenericTable
-            columns={staffTableColumns}
-            data={dummyStaffReservations}
+          <h3 className="text-lg font-semibold mb-2 text-left">
+            Assigned Reservations & Tables
+          </h3>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                {staffTableColumns.map((col) => (
+                  <TableHead key={col.key}>{col.label}</TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {paginatedData.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={staffTableColumns.length}
+                    className="text-center"
+                  >
+                    No reservations found.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                paginatedData.map((row) => (
+                  <TableRow key={row._id}>
+                    <TableCell>{row.customer.customerName}</TableCell>
+                    <TableCell>{row.partySize}</TableCell>
+                    <TableCell>
+                      {new Date(row.date).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell>{row.time}</TableCell>
+                    <TableCell>
+                      {Array.isArray(row.tableId)
+                        ? row.tableId.join(", ")
+                        : row.tableId}
+                    </TableCell>
+                    <TableCell>{row.status}</TableCell>
+                    <TableCell>{row.specialRequests || "-"}</TableCell>
+                    <TableCell>{row.allergies || "-"}</TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+          <PaginationControls
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalCount={totalCount}
+            startEntry={startEntry}
+            endEntry={endEntry}
+            pageNumbers={pageNumbers}
+            onPageChange={goToPage}
+            onNextPage={goToNextPage}
+            onPreviousPage={goToPreviousPage}
+            showLabel={true}
           />
         </div>
-        <div className="md:col-span-2">
-          <Updates updates={dummyUpdates} />
-        </div>
       </div>
-    </Layout>
-  )
+    // </Layout>
+  );
 }
 
-export default Dashboard
+export default Dashboard;

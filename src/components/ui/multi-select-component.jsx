@@ -8,7 +8,6 @@ import { Separator } from "@/components/ui/separator"
 export default function MultiSelectComponent({
   items,
   onSubmit,
-  title = "Select Items",
   description,
   maxHeight = "max-h-64",
   placeholder = "No items available",
@@ -138,7 +137,6 @@ export default function MultiSelectComponent({
             </div>
           ))}
         </div>
-        {/* Submit Button removed */}
       </div>
     </div>
   )

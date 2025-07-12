@@ -92,7 +92,7 @@ function Login() {
           </button>
         </div>
 
-        <div className="m-2 text-[#8E8C8C] text-[15px]">
+        <div className="m-2 text-[#8E8C8C] text-center text-[15px]">
           <span>- OR -</span>
         </div>
 

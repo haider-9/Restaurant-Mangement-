@@ -52,8 +52,12 @@ const EditStaffDialog = ({ open, onClose, staff, onUpdated }) => {
 
   useEffect(() => {
     const fetchTables = async () => {
+
       if (!locationId) return;
+      
       try {
+
+        // TODO: Combine working with /:locationId/tables/unAssigedTables
         const res = await locationApi.get(`/${locationId}/tables`);
         const mappedTables = (res?.tables || []).map((table) => ({
           _id: table._id,
@@ -62,6 +66,7 @@ const EditStaffDialog = ({ open, onClose, staff, onUpdated }) => {
         setAllTables(mappedTables);
       } catch (err) {
         setAllTables([]);
+        toast.error(err.message || "Failed to fetch tables.")
       }
     };
     if (open) fetchTables();
@@ -193,7 +198,7 @@ const EditStaffDialog = ({ open, onClose, staff, onUpdated }) => {
                 title="Assign Tables"
                 description="Select tables to assign to this staff member"
                 maxHeight="max-h-40"
-                placeholder="No tables found."
+                placeholder="All the tables have already been assigned."
                 alreadySelectedItems={staff?.assignedTables}
               />
               {/* Show current selection as badges for clarity */}
@@ -224,7 +229,7 @@ const EditStaffDialog = ({ open, onClose, staff, onUpdated }) => {
             <DialogClose asChild>
               <Button
                 type="button"
-                variant="destructive"
+                variant="outline"
                 onClick={handleDialogClose}
                 disabled={submitting}
               >

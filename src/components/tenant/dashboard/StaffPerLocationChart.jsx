@@ -30,52 +30,6 @@ const chartConfig = {
   },
 };
 
-const renderLabelWithLine = (props) => {
-  const { cx, cy, midAngle, outerRadius, payload } = props;
-  const RADIAN = Math.PI / 180;
-  const startRadius = outerRadius;
-  const lineLength = 20;
-  const x1 = cx + startRadius * Math.cos(-midAngle * RADIAN);
-  const y1 = cy + startRadius * Math.sin(-midAngle * RADIAN);
-  const x2 = cx + (startRadius + lineLength) * Math.cos(-midAngle * RADIAN);
-  const y2 = cy + (startRadius + lineLength) * Math.sin(-midAngle * RADIAN);
-
-  const isRight = x2 > cx;
-  const locationText = payload.location;
-
-  return (
-    <g>
-      <line
-        x1={x1}
-        y1={y1}
-        x2={x2}
-        y2={y2}
-        stroke={payload.fill}
-        strokeWidth={2}
-      />
-      <circle
-        cx={x2}
-        cy={y2}
-        r={3}
-        fill={payload.fill}
-        stroke="#fff"
-        strokeWidth={1}
-      />
-      <text
-        x={x2 + (isRight ? 8 : -8)}
-        y={y2}
-        fill="#222"
-        textAnchor={isRight ? "start" : "end"}
-        dominantBaseline="central"
-        fontSize={12}
-        fontWeight={600}
-        style={{ pointerEvents: "none" }}
-      >
-        {locationText}
-      </text>
-    </g>
-  );
-};
 
 const StaffPerLocationChart = () => {
   const [chartData, setChartData] = useState([]);
@@ -113,7 +67,7 @@ const StaffPerLocationChart = () => {
         setChartData(fallback);
       })
       .finally(() => setLoading(false));
-  }, []);
+  }, [tenantId]);
 
   if (loading) return <Loader2 size={20} className="animate-spin" />;
 
@@ -149,7 +103,7 @@ const StaffPerLocationChart = () => {
               innerRadius="60%"
               outerRadius="80%"
               paddingAngle={1}
-              label={renderLabelWithLine}
+              label={false}
               labelLine={false}
             >
               {chartData.map((entry, index) => (
@@ -159,7 +113,18 @@ const StaffPerLocationChart = () => {
           </PieChart>
         </ResponsiveContainer>
       </ChartContainer>
-      <h2 className="align-self-end font-semibold text-black/70">
+      <div className="flex gap-4 items-center flex-wrap">
+        {chartData.map((entry, index) => (
+          <div key={index} className="flex items-center gap-2">
+            <div
+              className="w-3 h-3 rounded-full"
+              style={{ backgroundColor: entry.fill }}
+            />
+            <span className="text-sm text-black/70">{entry.location}</span>
+          </div>
+        ))}
+      </div>
+      <h2 className="py-4 align-self-end font-semibold text-black/70">
         Staff vs Location
       </h2>
     </div>

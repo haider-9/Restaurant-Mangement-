@@ -13,6 +13,7 @@ import {
 } from "recharts";
 import { useState, useEffect } from "react";
 import axios from "axios";
+import useSocketEvent from "@/hooks/use-socket-event";
 
 const chartConfig = {
   noOfReservations: {
@@ -29,27 +30,29 @@ const getMaxValue = (data, key) => {
 const ReservationsByLocationChart = () => {
   const [chartData, setChartData] = useState([]);
 
+  const fetchData = async () => {
+    try {
+      const response = await axios.get(
+        "/api/tenants/AB002/reservationsPerLocation"
+      );
+      const locationData = response.data.data;
+      const formattedData = Object.entries(locationData).map(
+        ([location, noOfReservations]) => ({
+          location,
+          noOfReservations,
+        })
+      );
+      setChartData(formattedData);
+    } catch (error) {
+      console.error("Error fetching data:", error);
+    }
+  };
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const response = await axios.get(
-          "/api/tenants/AB002/reservationsPerLocation"
-        );
-        const locationData = response.data.data;
-        const formattedData = Object.entries(locationData).map(
-          ([location, noOfReservations]) => ({
-            location,
-            noOfReservations,
-          })
-        );
-        setChartData(formattedData);
-      } catch (error) {
-        console.error("Error fetching data:", error);
-      }
-    };
-
     fetchData();
   }, []);
+
+  useSocketEvent("new-booking", fetchData);
+
 
   const maxReservations = getMaxValue(chartData, "noOfReservations");
   const xDomainMax = Math.ceil((maxReservations * 1.1) / 10) * 10;
@@ -66,7 +69,7 @@ const ReservationsByLocationChart = () => {
           <BarChart
             data={chartData}
             barSize={8}
-            margin={{ top: 10, right: 30, left: 30, bottom: 10 }}
+            margin={{ top: 10, right: 30, left: 10, bottom: 10 }}
             layout="vertical"
           >
             <CartesianGrid strokeDasharray="3 3" opacity={0.1} />

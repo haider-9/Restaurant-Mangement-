@@ -1,60 +1,105 @@
-import { useEffect, useState } from 'react'
-import { useSelector } from 'react-redux'
-import Layout from '@/components/common/Layout'
-import { Button } from '@/components/ui/button'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import locationApi from '@/config/locationApi'
+import { useEffect, useState } from "react";
+import { useSelector } from "react-redux";
+import { toast } from "react-toastify";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationNext,
-  PaginationPrevious,
-  PaginationLink,
-} from "@/components/ui/pagination"
-import AddStaffDialog from '@/components/location/staffManage/AddStaffDialog'
-import EditStaffDialog from '@/components/location/staffManage/EditStaffDialog'
-import { UserRoundMinus, UserRoundPen, UserRoundPlus, Trash2 } from "lucide-react"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { Badge } from '@/components/ui/badge'
-import SuspendStaffDialog from '@/components/location/staffManage/SuspendStaffDialog'
-import { cn } from "@/lib/utils"
-import ReactivateStaffDialog from '@/components/location/staffManage/ReactivateStaff'
-import DeleteStaffDialog from '@/components/location/staffManage/DeleteStaffDialog' // integrated here
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import locationApi from "@/config/locationApi";
+import { Badge } from "@/components/ui/badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  UserRoundMinus,
+  UserRoundPen,
+  UserRoundPlus,
+  Trash2,
+  Loader2,
+  Search,
+} from "lucide-react";
+import Layout from "@/components/common/Layout";
+import AddStaffDialog from "@/components/location/staffManage/AddStaffDialog";
+import EditStaffDialog from "@/components/location/staffManage/EditStaffDialog";
+import SuspendStaffDialog from "@/components/location/staffManage/SuspendStaffDialog";
+import ReactivateStaffDialog from "@/components/location/staffManage/ReactivateStaff";
+import DeleteStaffDialog from "@/components/location/staffManage/DeleteStaffDialog";
+import { parseStaffId } from "@/lib";
+import { usePagination } from "@/hooks/use-pagination";
+import PaginationControls from "@/components/common/PaginationControls";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
-const PAGE_SIZE = 8
+const PAGE_SIZE = 8;
 
-function parseStaffId(id) {
-  if (!id) return { staffId: "", name: "" }
-  const lastDash = id.lastIndexOf("-");
-  if (lastDash === -1) return { staffId: id, name: "" };
-  const staffId = id.slice(0, lastDash);
-  const afterDash = id.slice(lastDash + 1);
-  if (afterDash.includes("@")) {
-    return { staffId, name: afterDash.split("@")[0] };
-  } else {
-    return { staffId, name: afterDash };
-  }
-}
-
-function StaffManage() {
+export default function StaffManage() {
   const [staffList, setStaffList] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [page, setPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
-  const [showDialog, setShowDialog] = useState("")
+  const [showDialog, setShowDialog] = useState("");
   const [selectedStaff, setSelectedStaff] = useState(null);
+  const [selectedStatus, setSelectedStatus] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
 
-  const { userData: { locationId = "AB002L1" } } = useSelector(state => state.auth)
+  const {
+    userData: { locationId = "AB002L1" },
+  } = useSelector((state) => state.auth);
+
+  const filteredStaff = staffList.filter((staff) => {
+    const statusMatch =
+      selectedStatus === "all" ||
+      staff.status.toLowerCase() === selectedStatus.toLowerCase();
+    const searchMatch =
+      staff.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      staff.staffId?.toLowerCase().includes(searchQuery.toLowerCase());
+    return statusMatch && searchMatch;
+  });
+
+  const {
+    currentPage,
+    totalPages,
+    paginatedData,
+    pageNumbers,
+    startEntry,
+    endEntry,
+    goToPage,
+    goToNextPage,
+    goToPreviousPage,
+  } = usePagination(filteredStaff, PAGE_SIZE);
+
+  const handleStatusChange = (value) => {
+    setSelectedStatus(value);
+    goToPage(1);
+  };
+
+  const handleSearchChange = (e) => {
+    setSearchQuery(e.target.value);
+    goToPage(1);
+  };
 
   useEffect(() => {
     const fetchStaff = async () => {
       setLoading(true);
       try {
         const res = await locationApi.get(`/${locationId}/staff`);
-        console.log(res)
+        console.log(res);
         if (res.success && Array.isArray(res.staff)) {
-          const mappedStaff = res.staff.map(staff => {
+          const mappedStaff = res.staff.map((staff) => {
             const { staffId, name } = parseStaffId(staff._id);
             return {
               ...staff,
@@ -71,7 +116,7 @@ function StaffManage() {
           setTotalCount(0);
         }
       } catch (err) {
-        console.error(err.message, err)
+        console.error(err.message, err);
         setStaffList([]);
         setTotalCount(0);
       }
@@ -79,7 +124,6 @@ function StaffManage() {
     };
     fetchStaff();
   }, [locationId]);
-
 
   const closeDialog = () => {
     setShowDialog("");
@@ -103,24 +147,20 @@ function StaffManage() {
     handleShowDialog("reactivate", staff);
   };
 
-  // Edit handler
   const showEditDialog = (staff) => {
     handleShowDialog("edit", staff);
   };
 
-  // Delete handler
   const showDeleteDialog = (staff) => {
     handleShowDialog("delete", staff);
   };
 
-  // Called after editing a staff member
   const handleStaffUpdated = async () => {
-    // Refresh staff list after edit
     setLoading(true);
     try {
       const res = await locationApi.get(`/${locationId}/staff`);
       if (res.success && Array.isArray(res.staff)) {
-        const mappedStaff = res.staff.map(staff => {
+        const mappedStaff = res.staff.map((staff) => {
           const { staffId, name } = parseStaffId(staff._id);
           return {
             ...staff,
@@ -139,74 +179,85 @@ function StaffManage() {
     } catch (err) {
       setStaffList([]);
       setTotalCount(0);
+      toast.error(err?.message || "Failed to fetch staff");
     }
     setLoading(false);
     closeDialog();
   };
 
   const handleStaffAdd = async (staffName, password) => {
-    return await locationApi.post(`/${locationId}/staff`, {
+    const res = await locationApi.post(`/${locationId}/staff`, {
       name: staffName,
       password,
     });
-  }
+    handleStaffUpdated();
+    return res;
+  };
 
   const handleSuspend = async (staff) => {
     try {
       await locationApi.put(`/${locationId}/staff/${staff._id}/suspend`);
-      setStaffList(prev =>
-        prev.map(s => s._id === staff._id ? { ...s, status: "suspended" } : s)
+      setStaffList((prev) =>
+        prev.map((s) =>
+          s._id === staff._id ? { ...s, status: "suspend" } : s
+        )
       );
       closeDialog();
     } catch (err) {
-      toast.error("Failed to suspend staff.");
+      toast.error(err?.message || "Failed to suspend staff.");
     }
   };
 
   const handleReactivate = async (staff) => {
     try {
       await locationApi.put(`/${locationId}/staff/${staff._id}/reactivate`);
-      setStaffList(prev =>
-        prev.map(s => s._id === staff._id ? { ...s, status: "active" } : s)
+      setStaffList((prev) =>
+        prev.map((s) => (s._id === staff._id ? { ...s, status: "active" } : s))
       );
       closeDialog();
     } catch (err) {
-      alert("Failed to reactivate staff.");
+      toast.error(err?.message || "Failed to reactivate staff.");
     }
   };
 
-  // Remove staff from list after deletion
   const handleStaffDeleted = (deletedId) => {
-    setStaffList(prev => prev.filter(s => s._id !== deletedId));
-    setTotalCount(prev => Math.max(0, prev - 1));
+    setStaffList((prev) => prev.filter((s) => s._id !== deletedId));
+    setTotalCount((prev) => Math.max(0, prev - 1));
   };
 
-  // Pagination logic
-  const totalPages = Math.ceil(totalCount / PAGE_SIZE);
-  const paginatedStaff = staffList.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-
-  const getPageNumbers = () => {
-    const pages = [];
-    if (totalPages <= 5) {
-      for (let i = 1; i <= totalPages; i++) pages.push(i);
-    } else {
-      let start = Math.max(page - 2, 1);
-      let end = Math.min(start + 4, totalPages);
-      if (end - start < 4) start = Math.max(end - 4, 1);
-      for (let i = start; i <= end; i++) pages.push(i);
-    }
-    return pages;
-  };
-
-  // ------
   return (
     <Layout title={"Staff Management"}>
-      <div className='p-6 bg-white rounded-3xl space-y-8 h-full'>
-        <div className="flex flex-wrap gap-4">
-          <Button onClick={showAddDialog}>Add Staff</Button>
+      <div className="p-6 bg-white rounded-3xl space-y-8 h-full">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <Button onClick={showAddDialog}>Add Staff</Button>
+            <Select value={selectedStatus} onValueChange={handleStatusChange}>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="Select Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="suspend">Suspended</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="relative flex-1 max-w-2xs">
+            <Input
+              placeholder="Search..."
+              value={searchQuery}
+              onChange={handleSearchChange}
+            />
+            <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+          </div>
         </div>
 
-        <AddStaffDialog open={showDialog === "add"} onClose={closeDialog} onAdd={handleStaffAdd} />
+        <AddStaffDialog
+          open={showDialog === "add"}
+          onClose={closeDialog}
+          onAdd={handleStaffAdd}
+        />
         <EditStaffDialog
           open={showDialog === "edit"}
           onClose={closeDialog}
@@ -215,15 +266,12 @@ function StaffManage() {
         />
 
         <div>
-          <h2 className='mb-2 font-bold text-2xl text-left'>
-            List of Staff
-          </h2>
+          <h2 className="mb-2 font-bold text-2xl text-left">List of Staff</h2>
           <Table>
             <TableHeader>
-              <TableRow className="*:text-black/70">
+              <TableRow className="text-base *:text-black/70">
                 <TableHead>Staff ID</TableHead>
                 <TableHead>Staff Name</TableHead>
-                <TableHead>Role</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Assigned To</TableHead>
                 <TableHead>Actions</TableHead>
@@ -232,58 +280,67 @@ function StaffManage() {
             <TableBody className="text-left">
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8">Loading...</TableCell>
+                  <TableCell colSpan={6} className="py-20">
+                    <Loader2 className="animate-spin size-8 mx-auto" />
+                  </TableCell>
                 </TableRow>
-              ) : paginatedStaff.length === 0 ? (
+              ) : paginatedData.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8">No staff found.</TableCell>
+                  <TableCell colSpan={6} className="text-center py-8">
+                    No staff found.
+                  </TableCell>
                 </TableRow>
               ) : (
-                paginatedStaff.map(staff => (
+                paginatedData.map((staff) => (
                   <TableRow key={staff._id}>
                     <TableCell>{staff.staffId || staff._id || "-"}</TableCell>
                     <TableCell>{staff.name || "-"}</TableCell>
-                    <TableCell>{staff.role || "staff"}</TableCell>
                     <TableCell>
-                      <Badge variant="secondary" className={cn("text-white rounded-full", {
-                        "bg-success/80": staff.status === "active",
-                        "bg-destructive/80": staff.status !== "active"
-                      })}>
+                      <Badge
+                        variant="secondary"
+                        className={cn("text-white px-4 py-1 rounded-full capitalize", {
+                          "bg-status-active": staff.status === "active",
+                          "bg-status-suspended": staff.status == "suspend",
+                        })}
+                      >
                         {staff.status}
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <div className='flex flex-wrap max-w-42 items-center gap-2'>
-
+                      <div className="flex flex-wrap max-w-40 items-center gap-2 text-center">
                         {staff.assignedTables && staff.assignedTables.length > 0
-                          ? staff.assignedTables.map(table => (<Badge variant="outline">{table.split("-").at(-1)}</Badge>))
+                          ? staff.assignedTables.map((table) => (
+                              <Badge variant="outline">
+                                {table.split("-").at(-1)}
+                              </Badge>
+                            ))
                           : "-"}
                       </div>
                     </TableCell>
                     <TableCell>
                       <TooltipProvider>
-                        <div className="flex gap-2">
+                        <div className="flex gap-0.5">
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <Button
                                 variant="icon"
                                 onClick={() => showEditDialog(staff)}
-                                className="rounded-full cursor-pointer"
+                                className="rounded-full hover:bg-primary/10 cursor-pointer"
                               >
-                                <UserRoundPen className="text-blue-600 size-4" />
+                                <UserRoundPen className="text-blue-600" />
                               </Button>
                             </TooltipTrigger>
                             <TooltipContent>Edit</TooltipContent>
                           </Tooltip>
-                          {staff.status === "suspended" ? (
+                          {staff.status === "suspend" ? (
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <Button
                                   variant="icon"
                                   onClick={() => showReactivateDialog(staff)}
-                                  className="rounded-full cursor-pointer"
+                                  className="rounded-full hover:bg-green-500/10 cursor-pointer"
                                 >
-                                  <UserRoundPlus className="text-green-600 size-4" />
+                                  <UserRoundPlus className="text-green-600" />
                                 </Button>
                               </TooltipTrigger>
                               <TooltipContent>Reactivate</TooltipContent>
@@ -294,9 +351,9 @@ function StaffManage() {
                                 <Button
                                   variant="icon"
                                   onClick={() => showSuspendDialog(staff)}
-                                  className="rounded-full cursor-pointer"
+                                  className="rounded-full hover:bg-red-500/10 cursor-pointer"
                                 >
-                                  <UserRoundMinus className="text-red-600 size-4" />
+                                  <UserRoundMinus className="text-red-600" />
                                 </Button>
                               </TooltipTrigger>
                               <TooltipContent>Suspend</TooltipContent>
@@ -307,9 +364,9 @@ function StaffManage() {
                               <Button
                                 variant="icon"
                                 onClick={() => showDeleteDialog(staff)}
-                                className="rounded-full cursor-pointer"
+                                className="rounded-full hover:bg-red-500/10 cursor-pointer"
                               >
-                                <Trash2 className="text-red-500 size-4" />
+                                <Trash2 className="text-red-500" />
                               </Button>
                             </TooltipTrigger>
                             <TooltipContent>Delete</TooltipContent>
@@ -330,7 +387,12 @@ function StaffManage() {
             onSuspend={handleSuspend}
           />
 
-          <ReactivateStaffDialog open={showDialog === "reactivate"} onClose={closeDialog} staff={selectedStaff} onReactivate={handleReactivate} />
+          <ReactivateStaffDialog
+            open={showDialog === "reactivate"}
+            onClose={closeDialog}
+            staff={selectedStaff}
+            onReactivate={handleReactivate}
+          />
 
           <DeleteStaffDialog
             open={showDialog === "delete"}
@@ -340,49 +402,19 @@ function StaffManage() {
             locationId={locationId}
           />
 
-          {/* Pagination Controls */}
-          {totalPages > 1 && (
-            <Pagination className="mt-2 justify-end">
-              <PaginationContent>
-                <PaginationItem>
-                  <PaginationPrevious
-                    title="Previous"
-                    label=""
-                    onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
-                    className={cn(
-                      page === 1 && "pointer-events-none opacity-50"
-                    )}
-                  />
-                </PaginationItem>
-
-                {getPageNumbers().map((pg) => (
-                  <PaginationItem key={pg} className="select-none cursor-pointer">
-                    <PaginationLink
-                      onClick={() => setPage(pg)}
-                      isActive={page === pg}
-                    >
-                      {pg}
-                    </PaginationLink>
-                  </PaginationItem>
-                ))}
-
-                <PaginationItem>
-                  <PaginationNext
-                    title="Next"
-                    label=""
-                    onClick={() => setPage((prev) => Math.min(prev + 1, totalPages))}
-                    className={cn(
-                      page === totalPages && "pointer-events-none opacity-50"
-                    )}
-                  />
-                </PaginationItem>
-              </PaginationContent>
-            </Pagination>
-          )}
+          <PaginationControls
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalCount={totalCount}
+            startEntry={startEntry}
+            endEntry={endEntry}
+            pageNumbers={pageNumbers}
+            onPageChange={goToPage}
+            onNextPage={goToNextPage}
+            onPreviousPage={goToPreviousPage}
+          />
         </div>
       </div>
     </Layout>
-  )
+  );
 }
-
-export default StaffManage
